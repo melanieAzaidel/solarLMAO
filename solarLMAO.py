@@ -7,11 +7,57 @@ import astropy.constants as const
 from astropy import units as u
 import pandas as pd
 import scipy as sp
+import matplotlib.pyplot as plt
+import matplotlib
+#---------------------------------------------------------------------------------------------------------------------------------------
+
+#Plotting parameters
+cm = plt.get_cmap('jet')
+plt.style.use('style_prof2.mplstyle')
+props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+
+default_size = 18
+plt.rcParams.update({
+    'font.size': default_size,  # This sets the default font size for everything
+    'font.weight': 'bold',
+    'axes.titlesize': default_size,
+    'axes.labelsize': default_size,
+    'xtick.labelsize': default_size,
+    'ytick.labelsize': default_size,
+    'legend.fontsize': default_size,
+    'figure.titlesize': default_size,
+    'axes.labelweight': 'bold',
+    'text.usetex': True,
+})
+
+figsize = 5
+
+plt.rcParams.update({
+    'axes.linewidth': 1.5,       # Set frame (spine) thickness
+    'xtick.major.width': 1.5,    # Set x-axis major tick thickness
+    'ytick.major.width': 1.5,    # Set y-axis major tick thickness
+    'xtick.minor.width': 1,  # Set x-axis minor tick thickness
+    'ytick.minor.width': 1,  # Set y-axis minor tick thickness
+    'xtick.major.size': 8,     # Set x-axis major tick length
+    'ytick.major.size': 8,     # Set y-axis major tick length
+    'xtick.minor.size': 3,     # Set x-axis minor tick length
+    'ytick.minor.size': 3,     # Set y-axis minor tick length
+})
+
+
+matplotlib.rcParams['figure.figsize'] = [figsize,figsize]#[10, 10] # for square canvas
+matplotlib.rcParams['figure.subplot.left'] = 0
+matplotlib.rcParams['figure.subplot.bottom'] = 0
+matplotlib.rcParams['figure.subplot.right'] = 1
+matplotlib.rcParams['figure.subplot.top'] = 1
+
+dpi = 350
 #---------------------------------------------------------------------------------------------------------------------------------------
 
 #Set the mixing parameters
 delta2_m_12 = 7.58e-5 * u.eV**2 #source: https://arxiv.org/pdf/0801.4589
 tan2_theta_12 = 0.436			#source: https://arxiv.org/pdf/1009.4771
+#sin2_theta_13 = 0.02
 sin2_theta_13 = 0.032 			#source: same as above
 
 #Convert mixing angles
@@ -185,7 +231,7 @@ def source_term(E_nu, zone):
 			source (float): Unitless source term for use in calculating the survival probability
 	"""
 	radius_grid = np.linspace(0.0015985,0.3,500) #Smallest radius where electron number density is described, out to 30% of the solar radius.
-	integrand = lambda ell: np.cos(2*matterAngle(n_r(ell)*u.cm**-3,energy)).value * zone(ell) #ell = r/R_sun
+	integrand = lambda ell: np.cos(2*matterAngle(n_r(ell)*u.cm**-3,E_nu)).value * zone(ell) #ell = r/R_sun
 	return sp.integrate.simpson(integrand(radius_grid),radius_grid)
 
 def p_ee(E_nu, zone):
@@ -261,10 +307,13 @@ def getDifferentialCrossSections(path):
 	df_e = pd.read_csv(path+'differential_cross_sections_e.csv', index_col=0)
 	df_mu_tau = pd.read_csv(path+'differential_cross_sections_mu_tau.csv', index_col=0)
 	return df_e.to_numpy(), df_mu_tau.to_numpy()
+    
+#Intialize differential cross sections
+differential_cross_sections_e, differential_cross_sections_mu_tau = getDifferentialCrossSections('data/')
 
 #Initialize theory neutrino and electron energies
-recoil_energies = np.linspace(0.01,30,num_points) #implicit units of MeV
-neutrino_energies = np.linspace(0.5,35,num_points) #implicit units of MeV
+recoil_energies = np.linspace(0.1,25,num_points) #implicit units of MeV
+neutrino_energies = np.linspace(0.5,30,num_points) #implicit units of MeV
 
 def resolution(T):
 	"""
@@ -317,7 +366,7 @@ def smear_numeric_sampled(true_spectrum,true_energies):
 	for T_measured in measured_energies:
 	    G = resolvingGaussian(T_measured,true_energies)
 	    integrand = true_spectrum * G
-	    sol = integrate.simpson(integrand,true_energies)
+	    sol = sp.integrate.simpson(integrand,true_energies)
 	    measured_rates.append(sol)
 
 	return np.array(measured_rates)
@@ -397,7 +446,7 @@ def generateSpectrum(beta,doMixing):
 			rates.append(0)
 			continue
         
-		sol = integrate.simpson(integrand[low_index:high_index],neutrino_energies[low_index:high_index])
+		sol = sp.integrate.simpson(integrand[low_index:high_index],neutrino_energies[low_index:high_index])
 		rates.append(sol)
 	return np.array(rates)
 
@@ -423,9 +472,9 @@ def spectrum_model(beta,doMixing):
 			final_spectrum (numpy.ndarray): 1D array containing the measured, discretized, unitful
 											prediction for the spectrum of scattered electrons.
 	"""
-	electron_spectrum = generateSpectrum(beta,doMixing)
-	measured_electron_spectrum = smear_numeric_sampled(electron_spectrum,recoil_energies)
-	final_spectrum = discretize(recoil_energies,measured_electron_spectrum)*unit_factor
+	electron_spectrum = generateSpectrum(beta,doMixing) #Generate the prompt spectrum
+	measured_electron_spectrum = smear_numeric_sampled(electron_spectrum,recoil_energies) #Apply effects due to energy resolution
+	final_spectrum = discretize(recoil_energies,measured_electron_spectrum)*unit_factor #Discretize according to Super-K and combine with prefactor
 	return final_spectrum
 #---------------------------------------------------------------------------------------------------------------------------------------
 
@@ -553,7 +602,7 @@ def determineNuProductionExtent(beta):
 
 			high_bound (float): The +1sigma upper bound from the peak of production.
 	"""
-	zone = generate_production_zone(beta)
+	zone = generate_production_zone(beta)(SSM_r)
 	norm_zone = zone/np.max(zone)
 	sigma_contours = contour_levels(norm_zone,0.68)
 
@@ -566,6 +615,100 @@ def determineNuProductionExtent(beta):
 	print(f'r = {r_max:>5.5f} - {low_bound:>5.5f}/ + {high_bound:>5.5f}')
 	return r_max, low_bound, high_bound
 
+#---------------------------------------------------------------------------------------------------------------------------------------
+#Functions related to the differential cross sections
+
+fsc = const.alpha #Fine structure constant
+G_F_natural = 1.16639e-5 * u.GeV**-2 #Fermi constant in natural units
+sin_2_W = 0.2317 #Weinberg angle
+rho_NC = 1.0126 #Neutral current parameter
+
+#Astropy conversion rules to go from natural units to astronomy units and back
+cross_section = [(u.GeV**-3, u.cm**2 * u.GeV**-1, lambda x: x * 0.3894 * 1e-27, lambda x: x / (0.3894 * 1e-27))] #GeV^-2 <--> 0.3894 mb, 1 mb <--> 1e-27 cm^2
+
+def dSigma_dT_corrections(flavor, E_nu, E_e):
+    """
+    Computes and returns the differential scattering cross sections between neutrino flavors and electrons according to radiative corrections and QED effects as a function of incident scattered electron energy, taking incident neutrino energy as a parameter. Source: https://arxiv.org/pdf/astro-ph/9502003
+
+        Parameters:
+            flavor (string): The neutrino flavor, must be 'e' or 'mu/tau'.
+            E_nu (astropy.units.quantity.Quantity): Incident neutrino energy with astropy units.
+            E_e (astropy.units.quantity.Quantity): Scattered electron energies with astropy units.
+
+        Returns:
+            dSigma_dT (float): Differential scattering cross section in implicit units of cm^2 MeV^-1. 
+    """
+    #E_nu is neutrino energy
+    #E_e is electron kinetic energy
+    z_val = E_e/E_nu
+    max_z = (2*E_nu)/(2*E_nu + m_electron)
+
+    if z_val.value >= max_z.value:
+        return 0
+            
+    #print(z)
+    xsc = 2*G_F_natural**2 * m_electron/np.pi * (g_L(E_e,flavor)**2 * (1 + fsc/np.pi * fminus(z_val,E_nu)) + g_R(E_e,flavor)**2 * (1-z_val)**2 * (1 + fsc/np.pi * fplus(z_val,E_nu))\
+                                                 - g_R(E_e,flavor)*g_L(E_e,flavor)*m_electron*z_val/E_nu * (1 + fsc/np.pi * fpm(z_val,E_nu)))
+
+    return xsc.to(u.cm**2 /u.MeV, equivalencies=cross_section).value
+
+def fminus(z,q):
+    #QED term
+    T = z*q
+    E = T + m_electron
+    l = np.sqrt(E**2 - m_electron**2)
+    beta = (l/E).value
+    #print(l,beta)
+    out = (E/l * np.log((E + l)/m_electron) - 1) * (2 * np.log(1 - z - m_electron/(E + l)) - np.log(1 - z) - 0.5*np.log(z) - 5/12)\
+    + 0.5*(-sp.special.spence(1 - z.value) + sp.special.spence(1 - beta)) - 0.5*np.log(1-z)**2 - (11/12 + z/2)*np.log(1-z)\
+    + z*(np.log(z) + 0.5*np.log(2*q/m_electron)) - (31/18 + 1/12 * np.log(z))*beta - 11*z/12 + z**2 /24
+    return out
+
+def fplus(z,q):
+    #QED term
+    T = z*q
+    E = T + m_electron
+    l = np.sqrt(E**2 - m_electron**2)
+    beta = (l/E).value
+    out = (E/l * np.log((E + l)/m_electron) - 1) * ((1-z)**2 * (2*np.log(1 - z - m_electron/(E + l)) - np.log(1 - z) - np.log(z)/2 - 2/3) - 0.5*(z**2 * np.log(z) + 1 - z))\
+    - 0.5*(1-z)**2 * (np.log(1-z)**2 + beta * (-sp.special.spence(1-(1-z.value)) - np.log(z)*np.log(1-z))) \
+    + np.log(1-z) * (0.5*z**2 * np.log(z) + (1-z)/3 * (2*z - 0.5)) + 0.5*z**2 * sp.special.spence(1-(1-z.value)) - z*(1-2*z)/3 * np.log(z) - z*(1-z)/6 \
+    - beta/12 * (np.log(z) + (1-z)*(115 - 109*z)/6)
+    return out
+
+def fpm(z,q):
+    #QED term
+    T = z*q
+    E = T + m_electron
+    l = np.sqrt(E**2 - m_electron**2)
+    out = 2*(E/l * np.log((E+l)/m_electron) - 1) * np.log(1 - z - m_electron/(E+l))
+    return out
+
+def g_R(T,flavor):
+    #Radiative correction term
+    if flavor == 'e':
+        return -rho_NC*kappa(T,'e')*sin_2_W
+    if flavor == 'mu/tau':
+        return -rho_NC*kappa(T,'mu/tau')*sin_2_W
+
+def g_L(T,flavor):
+    #Radiative correction term
+    if flavor == 'e':
+        return rho_NC*(0.5 - kappa(T,flavor)*sin_2_W) - 1
+    if flavor == 'mu/tau':
+        return rho_NC*(0.5 - kappa(T,flavor)*sin_2_W)
+        
+def eye(T):
+    #Radiative correction term
+    x = np.sqrt(1 + 2*m_electron/T)
+    return 1/6 * (1/3 + (3-x**2)*(0.5*x*np.log((x+1)/(x-1))-1))
+
+def kappa(T,flavor):
+    #Radiative correction term
+    if flavor == 'e':
+        return 0.9791 + 0.0097*eye(T)
+    if flavor == 'mu/tau':
+        return 0.9970 - 0.00037*eye(T)
 
 #*%@@@@@@@@@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##%#%%%#%%%%#%%%%%#%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #@@%*#%%@%%%%%%%%%%%%%%%%%%%%%%%%%%%%#%##%#########################################%########%%%%%%%%%
