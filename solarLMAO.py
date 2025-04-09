@@ -57,7 +57,6 @@ dpi = 350
 #Set the mixing parameters
 delta2_m_12 = 7.58e-5 * u.eV**2 #source: https://arxiv.org/pdf/0801.4589
 tan2_theta_12 = 0.436			#source: https://arxiv.org/pdf/1009.4771
-#sin2_theta_13 = 0.02
 sin2_theta_13 = 0.032 			#source: same as above
 
 #Convert mixing angles
@@ -97,24 +96,11 @@ SK_observed = all_SK_observed[0:-3]
 SK_err = all_SK_stat_err[0:-3] #ignoring systematic errors
 #---------------------------------------------------------------------------------------------------------------------------------------
 
-#Obtain the reference solar model as a DataFrame
-def getSolarModel(path):
-	"""
-	Return a DataFrame containing the reference solar model.
-
-		Parameters:
-			path (string): The location + name of the .csv file containing the reference solar model relative to the home directory of this repository.
-
-		Returns:
-			solarModel (pandas.core.frame.DataFrame): DataFrame containing the reference solar model.
-	"""
-	return pd.read_csv(path,names=['m','r','T','rho','P','l','X_H','X_He4','X_He3','X_C12','X_N14','X_O16','X_7Be','nu pp','nu B8','nu N13','nu O15','nu F17','nu Be7','nu pep','nu hep'],skiprows=1,index_col=False)
-
-#Get the solar model and relevant variable profiles
-solarModel = getSolarModel("data/Smoothed_Solar_Model.csv")
-SSM_r = np.array(solarModel['r'])
-SSM_T = np.array(solarModel['T'])
-SSM_rho = np.array(solarModel['rho'])
+#Obtain the reference solar model variables of interest
+solarModelPath = 'data/Individual Variable Profiles/'
+SSM_r = np.array(pd.read_csv(solarModelPath+'T.csv',names=['r','q'],skiprows=1,index_col=False)['r'])
+SSM_T = np.array(pd.read_csv(solarModelPath+'T.csv',names=['r','q'],skiprows=1,index_col=False)['q'])
+SSM_rho = np.array(pd.read_csv(solarModelPath+'rho.csv',names=['r','q'],skiprows=1,index_col=False)['q'])
 #---------------------------------------------------------------------------------------------------------------------------------------
 
 #Get the number density of electrons profile and turn it into a scipy interpolated function
@@ -133,11 +119,12 @@ def getElectronNumberDensity(path):
 			Contains no Astropy units
 
 	"""
-	n_e_profile = pd.read_csv(path,names=['r','n_e'])
+	n_e_profile = pd.read_csv(path,names=['r','n_e'],skiprows=1)
 	r,n_e = np.array(n_e_profile['r']), 10**(np.array(n_e_profile['n_e'])) * const.N_A.value
 	return sp.interpolate.interp1d(r,n_e,fill_value=(n_e[0],n_e[-1]),bounds_error=True)
 
-n_r = getElectronNumberDensity("data/n_e.csv")
+#n_r = getElectronNumberDensity("data/n_e.csv")
+n_r = getElectronNumberDensity("data/Individual Variable Profiles/log10(n_eN_A).csv")
 #---------------------------------------------------------------------------------------------------------------------------------------
 
 #Get the 8B neutrino production zone as calculated using the above solar model
@@ -230,7 +217,7 @@ def source_term(E_nu, zone):
 		Returns:
 			source (float): Unitless source term for use in calculating the survival probability
 	"""
-	radius_grid = np.linspace(0.0015985,0.3,500) #Smallest radius where electron number density is described, out to 30% of the solar radius.
+	radius_grid = np.linspace(0.00161,0.3,500) #Smallest radius where electron number density is described, out to 30% of the solar radius.
 	integrand = lambda ell: np.cos(2*matterAngle(n_r(ell)*u.cm**-3,E_nu)).value * zone(ell) #ell = r/R_sun
 	return sp.integrate.simpson(integrand(radius_grid),radius_grid)
 
@@ -498,7 +485,7 @@ def log_likelihood(theta):
     beta = theta
     theory = spectrum_model(beta,True)
     sigma2 = SK_err**2
-    return -0.5*np.sum((SK_observed - theory)**2 /sigma2 + np.log(sigma2))
+    return -0.5*np.sum((SK_observed - theory)**2 /sigma2 + np.log(2*np.pi*sigma2))
 
 def log_probability(theta):
     lp = log_prior(theta)
