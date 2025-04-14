@@ -7,4 +7,4 @@ Short tutorials on <sup>8</sup>B neutrino Production and Detection can be found 
 The Notebook plotFactory.py contains the code used to produce the figures in [link to paper].
 
 ## Acknowledgement
-This material is based upon work supported by the National Science Foundation Graduate Research Fellowship under Grant No. DGE-2240614. I work with John F. Beacom, whose work was supported by National Science Foundation Grant No.\ PHY-2310018.
+This material is based upon work supported by the National Science Foundation Graduate Research Fellowship under Grant No. DGE-2240614. I work with John F. Beacom, whose work was supported by National Science Foundation Grant No. PHY-2310018.
