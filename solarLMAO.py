@@ -55,9 +55,9 @@ dpi = 350
 #---------------------------------------------------------------------------------------------------------------------------------------
 
 #Set the mixing parameters
-delta2_m_12 = 7.58e-5 * u.eV**2 #source: https://arxiv.org/pdf/0801.4589
-tan2_theta_12 = 0.436			#source: https://arxiv.org/pdf/1009.4771
-sin2_theta_13 = 0.032 			#source: same as above
+delta2_m_12 = 7.53e-5 * u.eV**2 #source: https://inspirehep.net/files/5b4710f2c932491d19c041a0aaddd478
+tan2_theta_12 = 0.436			#source: https://inspirehep.net/files/5b4710f2c932491d19c041a0aaddd478
+sin2_theta_13 = 0.023 			#source: https://inspirehep.net/files/5b4710f2c932491d19c041a0aaddd478
 
 #Convert mixing angles
 theta_12 = (np.arctan(np.sqrt(tan2_theta_12))*u.rad).to('degree')
@@ -465,7 +465,7 @@ def spectrum_model(beta,doMixing):
 
 #Set the prior on beta
 prior_low = 10
-prior_high = 30
+prior_high = 40
 prior_span = prior_high - prior_low
 
 #Set the grid size of betas to try
@@ -558,13 +558,13 @@ def fitBeta(filename, generate=True, show=True):
         ax.plot(beta_range,P1/norm,'-k',lw=1.5)
         ax.set_xlabel(r'$\beta$') 
         ax.fill_between(beta_range, P1/norm, where=P1>=sigma_contours, interpolate=True, alpha=0.3,label=r'1$\sigma$ limits')
-        ax.set_ylim(0,0.15)
-        ax.set_xlim(10,30)
+        ax.set_ylim(0,0.075)
+        ax.set_xlim(prior_low,prior_high)
         ax.legend(loc='upper right',fontsize=14)
         ax.set_ylabel('Probability Density',labelpad=1)
         ax.tick_params(axis='x', pad=7)
         ax.tick_params(axis='y', pad=2)
-        ax.set_xticks([10,15,20,25,30])
+        ax.set_xticks([10,15,20,25,30,35,40])
         plt.tight_layout()
         ax.set_box_aspect(1)
         fig.savefig('figures/fitResult.pdf')
