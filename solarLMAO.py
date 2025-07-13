@@ -55,9 +55,9 @@ dpi = 350
 #---------------------------------------------------------------------------------------------------------------------------------------
 
 #Set the mixing parameters
-delta2_m_12 = 7.53e-5 * u.eV**2 #source: https://inspirehep.net/files/5b4710f2c932491d19c041a0aaddd478
-tan2_theta_12 = 0.436			#source: https://inspirehep.net/files/5b4710f2c932491d19c041a0aaddd478
-sin2_theta_13 = 0.023 			#source: https://inspirehep.net/files/5b4710f2c932491d19c041a0aaddd478
+delta2_m_12 = 7.53e-5 * u.eV**2 #source: https://inspirehep.net/literature/1464091
+tan2_theta_12 = 0.436			#source: https://inspirehep.net/literature/1464091
+sin2_theta_13 = 0.022 			#source: https://inspirehep.net/literature/2838825
 
 #Convert mixing angles
 theta_12 = (np.arctan(np.sqrt(tan2_theta_12))*u.rad).to('degree')
@@ -347,10 +347,10 @@ def smear_numeric_sampled(true_spectrum,true_energies):
 	measured_energies = np.array(true_energies,copy=True)
 	measured_rates = []
 	for T_measured in measured_energies:
-	    G = resolvingGaussian(T_measured,true_energies)
-	    integrand = true_spectrum * G
-	    sol = sp.integrate.simpson(integrand,true_energies)
-	    measured_rates.append(sol)
+		G = resolvingGaussian(T_measured,true_energies)
+		integrand = true_spectrum * G
+		sol = sp.integrate.simpson(integrand,true_energies)
+		measured_rates.append(sol)
 
 	return np.array(measured_rates)
 
